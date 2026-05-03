@@ -51,8 +51,29 @@ function doPost(e) {
   }
 }
 
+/**
+ * Live read endpoint. Returns all listings as a JSON array of objects keyed
+ * by header name. The frontend uses this instead of the published-to-web CSV
+ * so writes from doPost are reflected immediately (no Google publish-cache lag).
+ */
 function doGet() {
-  return _json({ ok: true, service: 'dar-finder status updater' });
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+    const lastCol = sheet.getLastColumn();
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return _json([]);
+
+    const all = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+    const headers = all[0];
+    const rows = all.slice(1).map(r => {
+      const obj = {};
+      headers.forEach((h, i) => { obj[h] = r[i]; });
+      return obj;
+    });
+    return _json(rows);
+  } catch (err) {
+    return _json({ ok: false, error: String(err) });
+  }
 }
 
 function _json(obj) {

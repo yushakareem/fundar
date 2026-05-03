@@ -40,11 +40,12 @@ GitHub Pages is configured to serve from `/docs`.
 - Never commit `.secrets/` — gitignored (`/.secrets`)
 - `.staticrypt.json` is safe to commit (contains salt only, no password)
 
-## Sheet status updates (Applied / Reviewed)
+## Google Sheet integration
 
-The popup for each home has three buttons — **Applied**, **Reviewed**, **Clear** — that write the row's `reviewed_or_applied` column in the Google Sheet. The scraper backend treats that column as protected, so writes from the frontend are not overwritten by scrape runs.
+A single Apps Script Web App (`apps-script/Code.gs`) bound to the listings spreadsheet handles **both** reads and writes:
 
-The write path is a Google Apps Script Web App bound to the listings spreadsheet. The frontend POSTs `{listing_id, status}` and the script writes the cell.
+- `GET /exec` → returns all listings as JSON. The frontend uses this for the live dataset on page load. No publish-cache lag, so writes are visible on next reload.
+- `POST /exec {listing_id, status}` → writes the row's `reviewed_or_applied` cell. Driven by the Applied / Reviewed / Clear buttons in each home's popup. The scraper backend treats `reviewed_or_applied` as protected, so frontend writes survive scrape runs.
 
 ### One-time setup
 
@@ -52,10 +53,10 @@ The write path is a Google Apps Script Web App bound to the listings spreadsheet
 2. Replace the default `Code.gs` with the contents of `apps-script/Code.gs` and save.
 3. **Deploy → New deployment** → Type: **Web app** → Execute as: **Me** → Who has access: **Anyone** → Deploy.
 4. Copy the deployment URL (ends in `/exec`).
-5. In the unencrypted `index.html`, set `const SHEET_UPDATE_URL = '...';` to that URL.
+5. In the unencrypted `index.html`, set `const SHEET_API_URL = '...';` to that URL.
 6. Re-run staticrypt and push `docs/` (see "To update the app" above).
 
-Empty `SHEET_UPDATE_URL` keeps the app in read-only mode (status buttons hidden).
+Empty `SHEET_API_URL` falls back to reading the published-to-web CSV (with publish-cache lag) and hides the status buttons.
 
 ### Updating the script
 
@@ -63,4 +64,4 @@ Edit `apps-script/Code.gs` here, paste into the Apps Script editor, then **Deplo
 
 ## Future improvements
 
-- **Shared-secret auth on status writes.** Today `SHEET_UPDATE_URL` is the only thing protecting the sheet from writes — anyone with the URL can write. The URL only ships inside the staticrypt-encrypted bundle, so exposure is limited to people with the password, which is enough for a private tool. To harden: add a constant `const SHEET_UPDATE_SECRET = '...';` to `index.html`, send it in the POST body, and check it in `Code.gs` before writing. Then someone who exfiltrates the URL alone (e.g. from browser network logs) still cannot write.
+- **Shared-secret auth on status writes.** Today `SHEET_API_URL` is the only thing protecting the sheet from writes — anyone with the URL can write (and read). The URL only ships inside the staticrypt-encrypted bundle, so exposure is limited to people with the password, which is enough for a private tool. To harden: add a constant `const SHEET_API_SECRET = '...';` to `index.html`, send it in the POST body, and check it in `Code.gs` before writing. Then someone who exfiltrates the URL alone (e.g. from browser network logs) still cannot write. Reads can stay open or be similarly gated.
