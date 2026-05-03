@@ -62,6 +62,21 @@ Empty `SHEET_API_URL` falls back to reading the published-to-web CSV (with publi
 
 Edit `apps-script/Code.gs` here, paste into the Apps Script editor, then **Deploy → Manage deployments → edit → New version**. Same `/exec` URL keeps working.
 
+## Proximity tier system
+
+Card and map-pin colour is driven by the **`closest_mosque_status` column** written by the backend scraper — the frontend does not recalculate it. The frontend falls back to its own calculation only if the column is missing.
+
+| Tier | Colour | Meaning |
+|---|---|---|
+| `green` | Green | Mosque within 10 min walk, 6 min cycle, or 6 min drive |
+| `orange` | Orange | Mosque within 15 min walk, 9 min cycle, or 9 min drive |
+| `red` | Red | Mosque found but beyond all thresholds |
+| `blue` | Blue | No mosque found within the search radius — check manually |
+
+Thresholds are defined in `backend/home-scrape-nl/config.yaml` under `mosque_status_thresholds`. If you change them there, update this table and the legend text in `index.html`.
+
+The proximity filter is **multi-select** — Sarah can toggle any combination of tiers. No buttons active = show all.
+
 ## Future improvements
 
 - **Shared-secret auth on status writes.** Today `SHEET_API_URL` is the only thing protecting the sheet from writes — anyone with the URL can write (and read). The URL only ships inside the staticrypt-encrypted bundle, so exposure is limited to people with the password, which is enough for a private tool. To harden: add a constant `const SHEET_API_SECRET = '...';` to `index.html`, send it in the POST body, and check it in `Code.gs` before writing. Then someone who exfiltrates the URL alone (e.g. from browser network logs) still cannot write. Reads can stay open or be similarly gated.
